@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Sign Game</title>
+    <!-- Teachable Machine Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        #camera {
+            margin-top: 20px;
+            display: block;
+        }
+        #game-screen {
+            display: none;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>Hand Sign Game</h1>
+        <p>Perform the "Start" gesture to begin.</p>
+        <div id="camera"></div>
+    </div>
+
+    <div id="game-screen">
+        <h1>Hand Sign Game</h1>
+        <p id="instruction">Get ready!</p>
+        <p>Score: <span id="score">0</span></p>
+        <p>Time Left: <span id="time">30</span> seconds</p>
+        <div id="camera"></div>
+    </div>
+
+    <script>
+        const URL = "C:/Users/hito0/OneDrive/デスクトップ/Hand Sign Game/"; // Change if model files are in another location
+        let model, webcam, maxPredictions;
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let currentGesture = "";
+
+        async function init() {
+            // Load the model and metadata
+            model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+            maxPredictions = model.getTotalClasses();
+
+            // Setup webcam
+            const flip = true; // whether to flip the webcam
+            webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("camera").appendChild(webcam.canvas);
+        }
+
+        async function loop() {
+            webcam.update(); // update the webcam frame
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            prediction.sort((a, b) => b.probability - a.probability);
+
+            const topPrediction = prediction[0];
+            const gesture = topPrediction.className;
+
+            if (gesture === "Start" && timeLeft === 30) {
+                startGame();
+            }
+
+            if (gesture === currentGesture) {
+                score++;
+                document.getElementById("score").textContent = score;
+                currentGesture = ""; // Reset after scoring
+            }
+        }
+
+        function startGame() {
+            document.getElementById("start-screen").classList.add("hidden");
+            document.getElementById("game-screen").style.display = "block";
+
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById("time").textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            nextGesture();
+        }
+
+        function nextGesture() {
+            const gestures = ["Greeting", "Thank you", "Understood", "Goodbye", "1", "5"];
+            currentGesture = gestures[Math.floor(Math.random() * gestures.length)];
+            document.getElementById("instruction").textContent = `Perform: ${currentGesture}`;
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            alert(score >= 100 ? "You win!" : "Game over!");
+            window.location.reload();
+        }
+
+        init();
+    </script>
+</body>
+</html>
